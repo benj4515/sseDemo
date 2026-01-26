@@ -36,6 +36,19 @@
   border: none;
 }
 
+.top-right-button2 {
+  position: absolute;
+  top: 48px;
+  right: 12px;
+
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+
+  border-radius: 6px;
+  border: none;
+}
+
 .app-title {
   margin: 0;
   text-align: center;

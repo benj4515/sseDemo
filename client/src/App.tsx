@@ -1,23 +1,34 @@
 import "./App.css";
 import { useStreamMessages } from "./hooks/useSendAndRecieveMessages.ts";
-import {setUserName} from "./hooks/useUserName.ts";
+import { useUserName } from "./hooks/useUserName.ts";
+import { useEncryptionKey } from "./hooks/useEncryptionKey.ts";
 
 function App() {
-  const { message, messages, setMessage, sendMessageToServer, isTypingHandler } = useStreamMessages();
+  const { username, setUsername } = useUserName();
+  const { encryptionKey, setEncryptionKey } = useEncryptionKey();
+  const { message, messages, setMessage, sendMessageToServer, isTypingHandler } = useStreamMessages(encryptionKey);
 
-  const SendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username != null) {
-      sendMessageToServer(username);
+  const handleSendMessage = () => {
+    if (!username) {
+      alert("Please set a username before sending a message.");
+      return;
     }
-  }
 
-  const [username, setUsername] = setUserName();
+    sendMessageToServer(username);
+  };
 
   const handleSetUsername = () => {
     const name = prompt("Enter your username:");
     if (name && name.trim()) {
       setUsername(name.trim());
+    }
+  };
+
+  const handleSetKey = () => {
+    const key = prompt(encryptionKey ? "Update encryption key:" : "Enter encryption key:", encryptionKey ?? undefined);
+    if (key !== null) {
+      const nextKey = key.trim();
+      setEncryptionKey(nextKey ? nextKey : null);
     }
   };
 
@@ -27,9 +38,14 @@ function App() {
 
   return (
       <div className="app-shell">
-        <button className="top-right-button" onClick={handleSetUsername}>
-          {username ? username : "Set Username"}
-        </button>
+       
+          <button className="top-right-button" onClick={handleSetUsername}>
+            {username ? username : "Set Username"}
+          </button>
+          <button className="top-right-button2" onClick={handleSetKey} >
+            {encryptionKey ? "Key Set" : "Set Key"}
+          </button>
+        
         <div className="app-card">
 
           <h1 className="app-title">Message</h1>
@@ -40,10 +56,18 @@ function App() {
                 type="text"
                 placeholder="Type your message here..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && SendMessage(e)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  handleIsTyping();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
             />
-            <button type="button" onClick={SendMessage}>
+            <button type="button" onClick={handleSendMessage}>
               Send
             </button>
           </div>

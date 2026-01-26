@@ -1,75 +1,100 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
+import {decryptWithKey, encryptWithKey} from "../utils/encryption";
 
 type ChatMessage = {
     user: string;
     content: string;
 }
 
-export const useStreamMessages = () => {
-const [messages, setMessages] = useState<ChatMessage[]>([]);
-const [message, setMessage] = useState("");
-const [isTyping, setIsTyping] = useState(false);
+export const useStreamMessages = (encryptionKey?: string | null) => {
+    const [rawMessages, setRawMessages] = useState<ChatMessage[]>([]);
+    const [message, setMessage] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
 
-useEffect(() => {
-    const es = new EventSource("http://localhost:5196/chat/stream");
+    useEffect(() => {
+        const es = new EventSource("http://localhost:5196/chat/stream");
 
-    es.onmessage = (event) => {
-        const obj = JSON.parse(event.data) as ChatMessage;
-        console.log(obj);
-        setMessages(prev => [
-            ...prev, obj
-        ]);
-    };
+        es.onmessage = (event) => {
+            const obj = JSON.parse(event.data) as ChatMessage;
+            console.log(obj);
+            setRawMessages(prev => [
+                ...prev, obj
+            ]);
+        };
 
-    return () => es.close();
-}, []);
+        return () => es.close();
+    }, []);
 
-   /* useEffect(() => {
-    const typingEs = new EventSource("http://localhost:5196/chat/typingStream");
+    const messages = useMemo(() => {
+        return rawMessages.map((msg) => {
+            if (!encryptionKey) {
+                return msg;
+            }
 
-    typingEs.onmessage = (event) => {
-        const typingStatus = JSON.parse(event.data) as { isTyping: boolean };
-        setIsTyping(typingStatus.isTyping);
-    }
+            const decryptedContent = decryptWithKey(msg.content, encryptionKey);
+            if (!decryptedContent) {
+                return msg;
+            }
+
+            return { ...msg, content: decryptedContent };
+        });
+    }, [rawMessages, encryptionKey]);
+
+    /* useEffect(() => {
+        const typingEs = new EventSource("http://localhost:5196/chat/typingStream");
+
+        typingEs.onmessage = (event) => {
+            const typingStatus = JSON.parse(event.data) as { isTyping: boolean };
+            setIsTyping(typingStatus.isTyping);
+        };
     }, []);
 
     */
 
-const isTypingHandler = () => {
-    setIsTyping(true);
-    TypingHandler(isTyping);
-    setTimeout(() => setIsTyping(false), 3000);
-    TypingHandler(isTyping);
-};
+    const isTypingHandler = () => {
+        setIsTyping(true);
+        void postTypingStatus(true);
+        setTimeout(() => {
+            setIsTyping(false);
+            void postTypingStatus(false);
+        }, 3000);
+    };
 
-const TypingHandler = async (isTyping: boolean) => {
-    await fetch("http://localhost:5196/chat/typing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isTyping }),
-    });
-}
+    const postTypingStatus = async (isTypingValue: boolean) => {
+        await fetch("http://localhost:5196/chat/typing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isTyping: isTypingValue }),
+        });
+    };
 
     const sendMessageToServer = async (username: string) => {
-        if (!message.trim() || !username) return;
+        const trimmedMessage = message.trim();
+        if (!trimmedMessage || !username) return;
 
-
+        let payload = trimmedMessage;
+        if (encryptionKey) {
+            const encrypted = encryptWithKey(trimmedMessage, encryptionKey);
+            if (encrypted) {
+                payload = encrypted;
+            }
+        }
 
         await fetch("http://localhost:5196/chat/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: message, user: username }),
+            body: JSON.stringify({ content: payload, user: username }),
         });
 
         setMessage("");
     };
 
-    return{
-    messages,
-    message,
-    setMessage,
-    sendMessageToServer,
-    isTypingHandler
+    return {
+        messages,
+        message,
+        setMessage,
+        sendMessageToServer,
+        isTypingHandler,
+        isTyping,
     };
-
-}
+};

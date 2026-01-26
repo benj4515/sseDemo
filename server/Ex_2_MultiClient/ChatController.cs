@@ -77,23 +77,5 @@ public class ChatController : ControllerBase
         }
     }
     
-    [HttpGet("typingStream")]
-    
-    public async Task TypingStream()
-    {
-        Response.Headers.ContentType = "text/event-stream";
-        Clients.Add(Response.Body);
-        await Response.Body.FlushAsync();
-        try
-        {
-            while (!HttpContext.RequestAborted.IsCancellationRequested)
-            {
-                await Task.Delay(1000);
-            }
-        }
-        finally
-        {
-            Clients.Remove(Response.Body);
-        }
-    }
+   
 }

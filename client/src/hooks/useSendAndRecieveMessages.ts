@@ -24,7 +24,7 @@ useEffect(() => {
     return () => es.close();
 }, []);
 
-    useEffect(() => {
+   /* useEffect(() => {
     const typingEs = new EventSource("http://localhost:5196/chat/typingStream");
 
     typingEs.onmessage = (event) => {
@@ -32,6 +32,8 @@ useEffect(() => {
         setIsTyping(typingStatus.isTyping);
     }
     }, []);
+
+    */
 
 const isTypingHandler = () => {
     setIsTyping(true);

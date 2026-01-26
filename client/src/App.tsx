@@ -40,7 +40,7 @@ function App() {
                 type="text"
                 placeholder="Type your message here..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value) && handleIsTyping()}
+                onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && SendMessage(e)}
             />
             <button type="button" onClick={SendMessage}>

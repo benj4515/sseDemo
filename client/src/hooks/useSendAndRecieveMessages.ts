@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {decryptWithKey, encryptWithKey} from "../utils/encryption";
 
 type ChatMessage = {
@@ -6,10 +6,21 @@ type ChatMessage = {
     content: string;
 }
 
-export const useStreamMessages = (encryptionKey?: string | null) => {
+type TypingStatus = {
+    user: string;
+    isTyping: boolean;
+};
+
+type UseStreamMessagesOptions = {
+    encryptionKey?: string | null;
+    currentUser?: string | null;
+};
+
+export const useStreamMessages = ({ encryptionKey = null, currentUser = null }: UseStreamMessagesOptions = {}) => {
     const [rawMessages, setRawMessages] = useState<ChatMessage[]>([]);
     const [message, setMessage] = useState("");
-    const [isTyping, setIsTyping] = useState(false);
+    const [typingUser, setTypingUser] = useState<string | null>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         const es = new EventSource("http://localhost:5196/chat/stream");
@@ -40,33 +51,78 @@ export const useStreamMessages = (encryptionKey?: string | null) => {
         });
     }, [rawMessages, encryptionKey]);
 
-    /* useEffect(() => {
-        const typingEs = new EventSource("http://localhost:5196/chat/typingStream");
+    const postTypingStatus = useCallback(async (isTypingValue: boolean) => {
+        const displayUser = currentUser && currentUser.trim().length > 0
+            ? currentUser.trim()
+            : "Anonymous";
 
-        typingEs.onmessage = (event) => {
-            const typingStatus = JSON.parse(event.data) as { isTyping: boolean };
-            setIsTyping(typingStatus.isTyping);
-        };
-    }, []);
+        try {
+            await fetch("http://localhost:5196/chat/typing", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ isTyping: isTypingValue, user: displayUser }),
+            });
+        } catch (error) {
+            console.warn("Unable to post typing status", error);
+        }
+    }, [currentUser]);
 
-    */
+    const stopTyping = useCallback(() => {
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+        }
+        void postTypingStatus(false);
+    }, [postTypingStatus]);
 
     const isTypingHandler = () => {
-        setIsTyping(true);
         void postTypingStatus(true);
-        setTimeout(() => {
-            setIsTyping(false);
-            void postTypingStatus(false);
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+            stopTyping();
         }, 3000);
     };
 
-    const postTypingStatus = async (isTypingValue: boolean) => {
-        await fetch("http://localhost:5196/chat/typing", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isTyping: isTypingValue }),
-        });
-    };
+    useEffect(() => {
+        const typingEs = new EventSource("http://localhost:5196/chat/typingStream");
+
+        typingEs.onmessage = (event) => {
+            try {
+                if (!event.data) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                const typingStatus = JSON.parse(event.data) as TypingStatus;
+
+                if (!typingStatus?.user) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                if (currentUser && typingStatus.user === currentUser) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                setTypingUser(typingStatus.isTyping ? typingStatus.user : null);
+            } catch (error) {
+                console.warn("Unable to parse typing event", error);
+            }
+        };
+
+        return () => {
+            typingEs.close();
+        };
+    }, [currentUser]);
+
+    useEffect(() => {
+        return () => {
+            stopTyping();
+        };
+    }, [stopTyping]);
 
     const sendMessageToServer = async (username: string) => {
         const trimmedMessage = message.trim();
@@ -95,6 +151,8 @@ export const useStreamMessages = (encryptionKey?: string | null) => {
         setMessage,
         sendMessageToServer,
         isTypingHandler,
-        isTyping,
+        stopTyping,
+        isTyping: Boolean(typingUser),
+        typingUser,
     };
 };

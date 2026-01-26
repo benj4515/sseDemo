@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #f3f4f6, #e5e7eb);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.app-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.top-right-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+
+  border-radius: 6px;
+  border: none;
+}
+
+.app-title {
+  margin: 0;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row input {
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  font-size: 16px;
+  background: #f9fafb;
+}
+
+.form-row input:focus {
+  outline: 2px solid #2563eb;
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.form-row button {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.form-row button:hover {
+  background: #1d4ed8;
+}
+
+.form-row button:active {
+  background: #1e40af;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-row {
+  display: flex;
+}
+
+.chat-row-start {
+  justify-content: flex-start;
+}
+
+.chat-row-end {
+  justify-content: flex-end;
+}
+
+.chat-bubble {
+  max-width: 100%;
+  padding: 12px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.chat-row-start .chat-bubble {
+  background: #e5e7eb;
+  color: #111827;
+}

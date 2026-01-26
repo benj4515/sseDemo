@@ -1,0 +1,45 @@
+import { useEffect, useState, useRef } from "react";
+
+export const useSendMessage = () => {
+  const [messages, setMessages] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const esRef = useRef<EventSource | null>(null);
+
+  // Connect to SSE once
+  useEffect(() => {
+    const es = new EventSource("http://localhost:5196/chat/stream");
+    esRef.current = es;
+
+    es.onmessage = (event) => {
+      setMessages((prev) => [...prev, event.data]);
+    };
+
+    es.onerror = (err) => {
+      console.error("SSE error", err);
+    };
+
+    return () => {
+      es.close(); // cleanup
+    };
+  }, []);
+
+  // Send message
+  const sendMessageToServer = async () => {
+    if (!message.trim()) return;
+
+    await fetch("http://localhost:5208/chat/send", {
+      method: "POST",
+      body: JSON.stringify({ content: message }),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    setMessage("");
+  };
+
+  return {
+    messages,
+    message,
+    setMessage,
+    sendMessageToServer,
+  };
+};

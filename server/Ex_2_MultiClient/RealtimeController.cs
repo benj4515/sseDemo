@@ -1,11 +1,17 @@
+using dataaccess.Service.Interfaces;
+
 namespace server.Ex_2_MultiClient;
 
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using StateleSSE.AspNetCore;
+using dataaccess.Service;
 
 public class RealtimeController(ISseBackplane backplane) : ControllerBase
 {
+    
+    private readonly IMessageService _messageService;
+    
     [HttpGet("connect")]
     public async Task Connect()
     {
@@ -38,8 +44,11 @@ public class RealtimeController(ISseBackplane backplane) : ControllerBase
     
     
     [HttpPost("send")]
-    public async Task Send(string room, string message)
-        => await backplane.Clients.SendToGroupAsync(room, new { message });
+    public async Task Send(string room, dataaccess.Enitity.Message message)
+    {
+        _messageService.CreateAsync(message);
+        await backplane.Clients.SendToGroupAsync(room, new { message });
+    }
 
     [HttpPost("poke")]
     public async Task Poke(string connectionId)

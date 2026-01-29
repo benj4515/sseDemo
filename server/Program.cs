@@ -1,3 +1,4 @@
+using DotNetEnv;
 using server;
 using StateleSSE.AspNetCore;
 using StackExchange.Redis;
@@ -19,6 +20,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     return ConnectionMultiplexer.Connect(config);
 });
 builder.Services.AddRedisSseBackplane();
+
+
 
 
 var app = builder.Build();

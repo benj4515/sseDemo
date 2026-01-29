@@ -1,0 +1,51 @@
+namespace server.Ex_2_MultiClient;
+
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
+using StateleSSE.AspNetCore;
+
+public class RealtimeController(ISseBackplane backplane) : ControllerBase
+{
+    [HttpGet("connect")]
+    public async Task Connect()
+    {
+        await using var sse = await HttpContext.OpenSseStreamAsync();
+        await using var connection = backplane.CreateConnection();
+
+        await sse.WriteAsync("connected", JsonSerializer.Serialize(new { connection.ConnectionId },
+            new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }));
+
+        await foreach (var evt in connection.ReadAllAsync(HttpContext.RequestAborted))
+            await sse.WriteAsync(evt.Group ?? "message", evt.Data);
+    }
+
+    [HttpPost("join")]
+    public async Task Join(string connectionId, string room)
+    {
+        await backplane.Groups.AddToGroupAsync(connectionId, room);
+        await backplane.Clients.SendToGroupAsync(room, new { message = $"A new user has joined {room}." });
+    }
+        
+    [HttpPost("leave")]
+    public async Task Leave(string connectionId, string room)
+    {
+        await backplane.Groups.RemoveFromGroupAsync(connectionId, room);
+        await backplane.Clients.SendToGroupAsync(room, new { message = $"A user has left {room}." });
+    }
+    
+    
+    [HttpPost("send")]
+    public async Task Send(string room, string message)
+        => await backplane.Clients.SendToGroupAsync(room, new { message });
+
+    [HttpPost("poke")]
+    public async Task Poke(string connectionId)
+    {
+        var message = $"You have been poked!";
+        await backplane.Clients.SendToClientAsync(connectionId, new { message });
+    }
+
+}

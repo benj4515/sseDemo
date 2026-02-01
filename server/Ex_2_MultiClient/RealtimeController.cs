@@ -7,10 +7,17 @@ using Microsoft.AspNetCore.Mvc;
 using StateleSSE.AspNetCore;
 using dataaccess.Service;
 
-public class RealtimeController(ISseBackplane backplane, IMessageService messageService) : ControllerBase
+public class RealtimeController : ControllerBase
 {
     
     private readonly IMessageService _messageService;
+    private ISseBackplane _backplane;
+    
+    public RealtimeController(ISseBackplane backplane, IMessageService messageService)
+    {
+        _messageService = messageService;
+        _backplane = backplane;
+    }
     
     
     
@@ -18,7 +25,7 @@ public class RealtimeController(ISseBackplane backplane, IMessageService message
     public async Task Connect()
     {
         await using var sse = await HttpContext.OpenSseStreamAsync();
-        await using var connection = backplane.CreateConnection();
+        await using var connection = _backplane.CreateConnection();
 
         await sse.WriteAsync("connected", JsonSerializer.Serialize(new { connection.ConnectionId },
             new JsonSerializerOptions()
@@ -33,15 +40,15 @@ public class RealtimeController(ISseBackplane backplane, IMessageService message
     [HttpPost("join")]
     public async Task Join(string connectionId, string room)
     {
-        await backplane.Groups.AddToGroupAsync(connectionId, room);
-        await backplane.Clients.SendToGroupAsync(room, new { message = $"A new user has joined {room}." });
+        await _backplane.Groups.AddToGroupAsync(connectionId, room);
+        await _backplane.Clients.SendToGroupAsync(room, new { message = $"A new user has joined {room}." });
     }
         
     [HttpPost("leave")]
     public async Task Leave(string connectionId, string room)
     {
-        await backplane.Groups.RemoveFromGroupAsync(connectionId, room);
-        await backplane.Clients.SendToGroupAsync(room, new { message = $"A user has left {room}." });
+        await _backplane.Groups.RemoveFromGroupAsync(connectionId, room);
+        await _backplane.Clients.SendToGroupAsync(room, new { message = $"A user has left {room}." });
     }
     
     
@@ -49,14 +56,14 @@ public class RealtimeController(ISseBackplane backplane, IMessageService message
     public async Task Send( dataaccess.Enitity.Message message)
     {
         _messageService.CreateAsync(message);
-        await backplane.Clients.SendToGroupAsync(message.ChannelId, new { message });
+        await _backplane.Clients.SendToGroupAsync(message.ChannelId, new { message });
     }
 
     [HttpPost("poke")]
     public async Task Poke(string connectionId)
     {
         var message = $"You have been poked!";
-        await backplane.Clients.SendToClientAsync(connectionId, new { message });
+        await _backplane.Clients.SendToClientAsync(connectionId, new { message });
     }
 
 }

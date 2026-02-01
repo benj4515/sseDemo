@@ -7,10 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 using StateleSSE.AspNetCore;
 using dataaccess.Service;
 
-public class RealtimeController(ISseBackplane backplane) : ControllerBase
+public class RealtimeController(ISseBackplane backplane, IMessageService messageService) : ControllerBase
 {
     
     private readonly IMessageService _messageService;
+    
+    
     
     [HttpGet("connect")]
     public async Task Connect()
@@ -44,10 +46,10 @@ public class RealtimeController(ISseBackplane backplane) : ControllerBase
     
     
     [HttpPost("send")]
-    public async Task Send(string room, dataaccess.Enitity.Message message)
+    public async Task Send( dataaccess.Enitity.Message message)
     {
         _messageService.CreateAsync(message);
-        await backplane.Clients.SendToGroupAsync(room, new { message });
+        await backplane.Clients.SendToGroupAsync(message.ChannelId, new { message });
     }
 
     [HttpPost("poke")]

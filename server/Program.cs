@@ -3,6 +3,9 @@ using server;
 using StateleSSE.AspNetCore;
 using StackExchange.Redis;
 using StateleSSE.AspNetCore.Extensions;
+using dataaccess;
+using dataaccess.Service;
+using dataaccess.Service.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<HostOptions>(options =>
@@ -20,8 +23,8 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
     return ConnectionMultiplexer.Connect(config);
 });
 builder.Services.AddRedisSseBackplane();
-
-
+builder.Services.AddDbContext<AppDbContext>();
+builder.Services.AddScoped<IMessageService, MessageService>();
 
 
 var app = builder.Build();

@@ -1,20 +1,43 @@
-namespace dataaccess;
+using System;
+using System.IO;
 using DotNetEnv;
 
-public class DbConfig
-{
-    
+namespace dataaccess;
+
+public class DbConfig{
     static DbConfig()
     {
-        Env.Load(Path.Combine(Directory.GetCurrentDirectory(), ".env"));
+        LoadEnvFromKnownLocations();
     }
-    
-    
+
+    private static void LoadEnvFromKnownLocations()
+    {
+        // Try a handful of likely locations so running from bin or the repo root still finds the .env file.
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, ".env"),
+            Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env")), // solution root when running from bin
+            Path.Combine(AppContext.BaseDirectory, "dataaccess", ".env")
+        };
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+            {
+                Env.Load(path);
+                return;
+            }
+        }
+    }
+
+    private static string GetRequired(string key) =>
+        Env.GetString(key) ?? throw new InvalidOperationException($"Missing environment variable: {key}");
+
     public static string ConnectionString =>
-        
-        $"Host={Env.GetString("POSTGRES_HOST")};" +
-        $"Database={Env.GetString("POSTGRES_DB")};" +
-        $"Username={Env.GetString("POSTGRES_USER")};" +
-        $"Password={Env.GetString("POSTGRES_PASSWORD")};" +
+        $"Host={GetRequired("POSTGRES_HOST")};" +
+        $"Database={GetRequired("POSTGRES_DB")};" +
+        $"Username={GetRequired("POSTGRES_USER")};" +
+        $"Password={GetRequired("POSTGRES_PASSWORD")};" +
         "SSL Mode=Require";
 }

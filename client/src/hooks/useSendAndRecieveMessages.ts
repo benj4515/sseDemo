@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { decryptWithKey, encryptWithKey } from "../utils/encryption";
+import {type MessageDTO, type TypingStatus} from "../models/ServerAPI.ts";
+import {realtimeClient} from "../models/api-clients.ts";
 
 const REALTIME_BASE_URL = "http://localhost:5196";
 const CONNECT_ENDPOINT = `${REALTIME_BASE_URL}/connect`;
@@ -39,6 +41,12 @@ type BroadcastPayload =
     | TypingBroadcastPayload
     | { type?: string; user?: string; content?: string; isTyping?: boolean };
 
+type MessageDtoPayload = {
+    userId?: string;
+    channelId?: string;
+    content?: string;
+};
+
 const tryParseJson = <T,>(value: string): T | null => {
     try {
         return JSON.parse(value) as T;
@@ -70,10 +78,18 @@ const isTypingPayload = (payload: BroadcastPayload | null): payload is TypingBro
     typeof payload.user === "string" &&
     typeof payload.isTyping === "boolean";
 
+const isMessageDtoPayload = (payload: unknown): payload is MessageDtoPayload => {
+    if (!payload || typeof payload !== "object") {
+        return false;
+    }
+    const candidate = payload as Record<string, unknown>;
+    return typeof candidate.userId === "string" && typeof candidate.content === "string";
+};
+
 export const useStreamMessages = ({
                                       encryptionKey = null,
                                       currentUser = null,
-                                      room = null,
+                                      room = DEFAULT_ROOM,
                                   }: UseStreamMessagesOptions = {}) => {
     const roomName = sanitizeRoom(room);
     const [rawMessages, setRawMessages] = useState<ChatMessage[]>([]);
@@ -96,7 +112,7 @@ export const useStreamMessages = ({
         // Fan-out SSE payloads into chat messages or typing indicators.
         const envelope = tryParseJson<ServerEnvelope>(rawData);
         const payloadString = extractPayload(envelope, rawData);
-        const structured = tryParseJson<BroadcastPayload>(payloadString);
+        const structured = tryParseJson<BroadcastPayload | MessageDtoPayload>(payloadString);
 
         if (isTypingPayload(structured)) {
             if (currentUserRef.current && structured.user === currentUserRef.current) {
@@ -108,6 +124,11 @@ export const useStreamMessages = ({
 
         if (isChatPayload(structured)) {
             setRawMessages((prev) => [...prev, { user: structured.user, content: structured.content }]);
+            return;
+        }
+
+        if (isMessageDtoPayload(structured)) {
+            setRawMessages((prev) => [...prev, { user: structured.userId ?? SYSTEM_USER, content: structured.content ?? "" }]);
             return;
         }
 
@@ -142,22 +163,32 @@ export const useStreamMessages = ({
     }, [processIncomingMessage, roomName]);
 
     const joinRoom = useCallback(async (connection: string, targetRoom: string) => {
-        const params = new URLSearchParams({ connectionId: connection, room: targetRoom });
         try {
-            await fetch(`${REALTIME_BASE_URL}/join?${params.toString()}`, { method: "POST" });
+            const history = await realtimeClient.join(connection, targetRoom);
+
+            if (Array.isArray(history) && history.length > 0) {
+                // Append delivered history from the join response so it renders immediately.
+                setRawMessages((prev) => [
+                    ...prev,
+                    ...history.map(({ userId, content }) => ({
+                        user: userId ?? SYSTEM_USER,
+                        content: content ?? "",
+                    })),
+                ]);
+            }
         } catch (error) {
             console.warn("Unable to join room", error);
         }
     }, []);
 
     const leaveRoom = useCallback(async (connection: string, targetRoom: string) => {
-        const params = new URLSearchParams({ connectionId: connection, room: targetRoom });
         try {
-            await fetch(`${REALTIME_BASE_URL}/leave?${params.toString()}`, { method: "POST" });
+            await realtimeClient.leave(connection, targetRoom);
         } catch (error) {
             console.warn("Unable to leave room", error);
         }
     }, []);
+
 
     useEffect(() => {
         if (!connectionId) {
@@ -170,31 +201,22 @@ export const useStreamMessages = ({
         };
     }, [connectionId, joinRoom, leaveRoom, roomName]);
 
-    const sendToRoom = useCallback(
-        async (payload: string) => {
-            const params = new URLSearchParams({ room: roomName, message: payload });
-            try {
-                await fetch(`${REALTIME_BASE_URL}/send?${params.toString()}`, { method: "POST" });
-            } catch (error) {
-                console.warn("Unable to send payload", error);
-            }
-        },
-        [roomName]
-    );
-
     const postTypingStatus = useCallback(async (isTypingValue: boolean) => {
-        const displayUser = currentUser && currentUser.trim().length > 0
-            ? currentUser.trim()
-            : "Anonymous";
+        const user =
+            currentUser && currentUser.trim().length > 0
+                ? currentUser.trim()
+                : "Anonymous";
 
-        const payload = JSON.stringify({
-            type: "typing" as const,
-            user: displayUser,
-            isTyping: isTypingValue,
-        });
+        try {
+            await realtimeClient.typing({
+                user,
+                isTyping: isTypingValue,
+            });
+        } catch (error) {
+            console.warn("Unable to post typing status", error);
+        }
+    }, [currentUser]);
 
-        await sendToRoom(payload);
-    }, [currentUser, sendToRoom]);
 
     const stopTyping = useCallback(() => {
         if (typingTimeoutRef.current) {
@@ -203,6 +225,40 @@ export const useStreamMessages = ({
         }
         void postTypingStatus(false);
     }, [postTypingStatus]);
+
+    useEffect(() => {
+        const typingEs = new EventSource("http://localhost:5196/typingStream");
+
+        typingEs.onmessage = (event) => {
+            try {
+                if (!event.data) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                const typingStatus = JSON.parse(event.data) as TypingStatus;
+
+                if (!typingStatus?.user) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                if (currentUser && typingStatus.user === currentUser) {
+                    setTypingUser(null);
+                    return;
+                }
+
+                setTypingUser(typingStatus.isTyping ? typingStatus.user : null);
+            } catch (error) {
+                console.warn("Unable to parse typing event", error);
+            }
+        };
+
+        return () => {
+            typingEs.close();
+        };
+    }, [currentUser]);
+
 
     const isTypingHandler = () => {
         void postTypingStatus(true);
@@ -235,25 +291,26 @@ export const useStreamMessages = ({
         });
     }, [rawMessages, encryptionKey]);
 
-    const sendMessageToServer = async (username: string) => {
+    const sendMessageToServer = async (usernameOverride?: string) => {
+        const sender = (usernameOverride ?? currentUser ?? "").trim();
         const trimmedMessage = message.trim();
-        if (!trimmedMessage || !username) return;
+        if (!trimmedMessage || !sender) return;
 
-        let payload = trimmedMessage;
+        let content = trimmedMessage;
         if (encryptionKey) {
             const encrypted = encryptWithKey(trimmedMessage, encryptionKey);
             if (encrypted) {
-                payload = encrypted;
+                content = encrypted;
             }
         }
 
-        const serialized = JSON.stringify({
-            type: "chat" as const,
-            user: username,
-            content: payload,
-        });
+        const dto: MessageDTO = {
+            userId: sender,
+            channelId: roomName,
+            content,
+        };
 
-        await sendToRoom(serialized);
+        await realtimeClient.send(dto.userId, dto.channelId, dto.content);
         setMessage("");
     };
 

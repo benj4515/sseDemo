@@ -1,3 +1,4 @@
+using api;
 using DotNetEnv;
 using server;
 using StateleSSE.AspNetCore;
@@ -28,6 +29,8 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 
 
 var app = builder.Build();
+
+app.GenerateApiClientsFromOpenApi("./../client/src/models/ServerAPI.ts").GetAwaiter().GetResult();
 
 var backplane = app.Services.GetRequiredService<ISseBackplane>();                                                                                                                         
 backplane.OnClientDisconnected += async (_, e) =>                                                                                                                                                                                                                                                                                                                               

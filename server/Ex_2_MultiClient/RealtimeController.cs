@@ -17,6 +17,8 @@ public class RealtimeController : ControllerBase
     private readonly IMessageService _messageService;
     private ISseBackplane _backplane;
     private static readonly List<System.IO.Stream> TypingClients = new();
+    public record ConnectionIdAndUserName(string ConnectionId, string UserName);
+    public record JoinGroupBroadcast(List<ConnectionIdAndUserName> ConnectedUsers) : BaseResponseDto;
     
     public RealtimeController(ISseBackplane backplane, IMessageService messageService)
     {
@@ -44,11 +46,20 @@ public class RealtimeController : ControllerBase
     }
 
     [HttpPost("join")]
-    public async Task<List<MessageDTO>> Join(string connectionId, string room)
+    public async Task<List<MessageDTO>> Join(string connectionId, string room, string username)
     {
+        await _backplane.Groups.AddToGroupAsync("nickname/"+connectionId, username);
         await _backplane.Groups.AddToGroupAsync(connectionId, room);
-        await _backplane.Clients.SendToGroupAsync(room, new { message = $"A new user has joined {room}." });
+        await _backplane.Clients.SendToGroupAsync(room, new { message = $"{username} has joined {room}." });
         var messages = _messageService.getMessagesByChannelIdAsync(room);
+        var members = await _backplane.Groups.GetMembersAsync(room);
+        var list = new List<ConnectionIdAndUserName>();
+        foreach (var m in members)
+        {
+            var nickname = await _backplane.Groups.GetClientGroupsAsync("nickname/" + m);
+            list.Add(new ConnectionIdAndUserName(m, nickname.FirstOrDefault() ?? "Anonymous"));
+        }
+        await _backplane.Clients.SendToGroupAsync(room, new JoinGroupBroadcast(list));
         return await messages;
     }
         

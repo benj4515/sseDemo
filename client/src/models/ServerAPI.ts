@@ -47,7 +47,7 @@ export class RealtimeClient {
         return Promise.resolve<void>(null as any);
     }
 
-    join(connectionId: string | undefined, room: string | undefined): Promise<MessageDTO[]> {
+    join(connectionId: string | undefined, room: string | undefined, username: string | undefined): Promise<MessageDTO[]> {
         let url_ = this.baseUrl + "/join?";
         if (connectionId === null)
             throw new globalThis.Error("The parameter 'connectionId' cannot be null.");
@@ -57,6 +57,10 @@ export class RealtimeClient {
             throw new globalThis.Error("The parameter 'room' cannot be null.");
         else if (room !== undefined)
             url_ += "room=" + encodeURIComponent("" + room) + "&";
+        if (username === null)
+            throw new globalThis.Error("The parameter 'username' cannot be null.");
+        else if (username !== undefined)
+            url_ += "username=" + encodeURIComponent("" + username) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {

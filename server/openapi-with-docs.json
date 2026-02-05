@@ -41,6 +41,14 @@
               "type": "string"
             },
             "x-position": 2
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "x-position": 3
           }
         ],
         "responses": {

@@ -1,0 +1,19 @@
+﻿services:
+  contracts:
+    image: contracts
+    build:
+      context: .
+      dockerfile: Contracts/Dockerfile
+
+  dataaccess:
+    image: dataaccess
+    build:
+      context: .
+      dockerfile: dataaccess/Dockerfile
+
+  server:
+    image: server
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+

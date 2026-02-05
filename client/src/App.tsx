@@ -1,7 +1,24 @@
 import "./App.css";
-import Chats from "./Chats.tsx";
+import Chats from "./Chats";
+import Login from "./Login";
+import {
+    createBrowserRouter,
+    RouterProvider,
+} from "react-router-dom";
+
+const router = createBrowserRouter([
+    {
+        path: "/",
+        element: <Login />,
+    },
+    {
+        path: "chat", // relative, becomes /chat
+        element: <Chats />,
+    },
+]);
 
 function App() {
-    return <Chats />;
+    return <RouterProvider router={router} />;
 }
+
 export default App;

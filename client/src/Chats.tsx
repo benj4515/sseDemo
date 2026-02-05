@@ -5,7 +5,7 @@ import { useEncryptionKey } from "./hooks/useEncryptionKey.ts";
 import { useAutoScroll } from "./hooks/useAutoScroll.ts";
 
 function Chats() {
-  const { username, setUsername } = useUserName();
+  const { username } = useUserName();
   const { encryptionKey, setEncryptionKey } = useEncryptionKey();
   const {
     message,
@@ -29,12 +29,7 @@ function Chats() {
     stopTyping();
   };
 
-  const handleSetUsername = () => {
-    const name = prompt("Enter your username:");
-    if (name && name.trim()) {
-      setUsername(name.trim());
-    }
-  };
+
 
   const handleSetKey = () => {
     const key = prompt(
@@ -56,9 +51,9 @@ function Chats() {
   return (
       <div className="app-shell">
 
-          <button className="top-right-button" onClick={handleSetUsername}>
-            {username ? username : "Set Username"}
-          </button>
+          <h1 className="top-right-button">
+            {username || "Set Username"}
+          </h1>
           <button className="top-right-button2" onClick={handleSetKey} >
             {encryptionKey ? "Key Set" : "Set Key"}
           </button>

@@ -1,16 +1,11 @@
 using System.Security.Claims;
-using System.Text;
-using api.Models;
 using dataaccess.Enitity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
-
-
-
-namespace service.Services;
+namespace dataaccess.Service;
 
 public class TokenService
 {
@@ -31,7 +26,7 @@ public class TokenService
 
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.UserID),
+            new Claim(JwtRegisteredClaimNames.Sub, user.Id),
             new Claim(ClaimTypes.Role, user.Role.ToString()),
         };
         

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import { decryptWithKey, encryptWithKey } from "../utils/encryption";
 import {type MessageDTO, type TypingStatus} from "../models/ServerAPI.ts";
 import {realtimeClient} from "../models/api-clients.ts";
+import {getUserName} from "./useUserName.ts";
 
 const REALTIME_BASE_URL = "http://localhost:5196";
 const CONNECT_ENDPOINT = `${REALTIME_BASE_URL}/connect`;
@@ -47,6 +48,8 @@ type MessageDtoPayload = {
     content?: string;
 };
 
+
+
 const tryParseJson = <T,>(value: string): T | null => {
     try {
         return JSON.parse(value) as T;
@@ -86,11 +89,14 @@ const isMessageDtoPayload = (payload: unknown): payload is MessageDtoPayload => 
     return typeof candidate.userId === "string" && typeof candidate.content === "string";
 };
 
+
+
 export const useStreamMessages = ({
                                       encryptionKey = null,
                                       currentUser = null,
                                       room = DEFAULT_ROOM,
                                   }: UseStreamMessagesOptions = {}) => {
+    const username = getUserName() || "";
     const roomName = sanitizeRoom(room);
     const [rawMessages, setRawMessages] = useState<ChatMessage[]>([]);
     const [message, setMessage] = useState("");
@@ -98,6 +104,8 @@ export const useStreamMessages = ({
     const [connectionId, setConnectionId] = useState<string | null>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentUserRef = useRef<string | null>(currentUser);
+
+
 
     useEffect(() => {
         currentUserRef.current = currentUser;
@@ -162,9 +170,11 @@ export const useStreamMessages = ({
         };
     }, [processIncomingMessage, roomName]);
 
-    const joinRoom = useCallback(async (connection: string, targetRoom: string) => {
+
+
+    const joinRoom = useCallback(async (connection: string, targetRoom: string, username: string) => {
         try {
-            const history = await realtimeClient.join(connection, targetRoom);
+            const history = await realtimeClient.join(connection, targetRoom, username);
 
             if (Array.isArray(history) && history.length > 0) {
                 // Append delivered history from the join response so it renders immediately.
@@ -195,7 +205,7 @@ export const useStreamMessages = ({
             return;
         }
 
-        void joinRoom(connectionId, roomName);
+        void joinRoom(connectionId, roomName, username);
         return () => {
             void leaveRoom(connectionId, roomName);
         };

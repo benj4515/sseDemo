@@ -3,6 +3,8 @@ import { useStreamMessages } from "./hooks/useSendAndRecieveMessages.ts";
 import { useUserName } from "./hooks/useUserName.ts";
 import { useEncryptionKey } from "./hooks/useEncryptionKey.ts";
 import { useAutoScroll } from "./hooks/useAutoScroll.ts";
+import {useEffect, useMemo} from "react";
+import {useStream} from "./hooks/useStream.tsx";
 
 function Chats() {
   const { username } = useUserName();
@@ -17,6 +19,11 @@ function Chats() {
     typingUser,
     stopTyping,
   } = useStreamMessages({ encryptionKey, currentUser: username });
+
+  const activeUsers = useMemo(() => {
+
+  }, [username]);
+
   const { containerRef: chatListRef } = useAutoScroll<HTMLDivElement>([messages]);
 
   const handleSendMessage = async () => {
@@ -29,6 +36,17 @@ function Chats() {
     stopTyping();
   };
 
+  const stream = useStream()
+
+  useEffect(() => {
+stream.on<any>("general", "JoinGroupBroadcast", () => {
+  useMemo(() => {
+
+  }, [username])
+
+})
+
+  }, [])
 
 
   const handleSetKey = () => {
@@ -112,6 +130,26 @@ function Chats() {
             </button>
           </div>
         </div>
+        <aside className="side-panel users-panel">
+          <div className="panel-header">
+            <h2>Active Users</h2>
+            <span className="panel-meta">{stream.userName}</span>
+          </div>
+          <ul className="panel-list">
+            {stream.on(stream.on(stream.on(stream.on(stream.userName)))) === 0 && (
+                <li className="panel-empty">No users have joined yet.</li>
+            )}
+            {activeUsers.map((user) => (
+                <li key={user} className="panel-list-item">
+                  <span className="panel-list-title">
+                    {user}
+                    {user === username && <span className="panel-badge">you</span>}
+                  </span>
+                  {typingUser === user && <span className="panel-list-description">typing...</span>}
+                </li>
+            ))}
+          </ul>
+        </aside>
       </div>
   );
 }
